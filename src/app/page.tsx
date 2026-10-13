@@ -2,49 +2,23 @@
 
 import { useEffect, useState } from "react";
 import { Search, ShoppingCart } from "lucide-react";
-
-type Product = {
-  id: number;
-  name: string;
-  price: number;
-  category: string;
-  description: string;
-  image?: string | null;
-};
-
-type CartItem = Product & { qty: number };
+import { useCart, type Product } from "@/context/CartContext";
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState("");
-  const [cart, setCart] = useState<CartItem[]>([]);
   const [showCartMobile, setShowCartMobile] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [cartLoaded, setCartLoaded] = useState(false);
-
-  //CARGAR carrito guardado al iniciar
-  useEffect(() => {
-    const saved = localStorage.getItem("amazon-cart");
-    if (saved) {
-      try { setCart(JSON.parse(saved)); } catch {}
-    }
-    setCartLoaded(true);
-  }, []);  
-
-  //GUARDAR carrito cada vez que cambia
-  useEffect(() => {
-    if (!cartLoaded) return;
-    localStorage.setItem("amazon-cart", JSON.stringify(cart));
-  }, [cart, cartLoaded]);
-
-  const removeOne = (id: number) => {
-    setCart(prev => prev.map(i => i.id === id? {...i, qty: i.qty-1} : i).filter(i => i.qty > 0));
-  };
-
-  const deleteItem = (id: number) => {
-    setCart(prev => prev.filter(i => i.id!== id));
-  };
+  const {
+    cart,
+    addToCart,
+    updateQuantity,
+    cartCount,
+    cartTotal,
+    isLoaded: cartIsLoaded,
+    storageError,
+  } = useCart();
 
   useEffect(() => {
     const controller = new AbortController();
@@ -87,26 +61,6 @@ export default function Home() {
       product.category.toLowerCase().includes(normalizedSearch),
   );
 
-  const addToCart = (product: Product) => {
-    setCart((previousCart) => {
-      const existingItem = previousCart.find((item) => item.id === product.id);
-
-      if (existingItem) {
-        return previousCart.map((item) =>
-          item.id === product.id ? { ...item, qty: item.qty + 1 } : item,
-        );
-      }
-
-      return [...previousCart, { ...product, qty: 1 }];
-    });
-  };
-
-  const totalItems = cart.reduce((total, item) => total + item.qty, 0);
-  const totalPrice = cart.reduce(
-    (total, item) => total + item.price * item.qty,
-    0,
-  );
-
   return (
     <div className="flex min-h-screen flex-col bg-[#EAEDED] font-sans">
       <header className="sticky top-0 z-50 bg-[#131921] text-white shadow-md">
@@ -143,11 +97,11 @@ export default function Home() {
           <button
             type="button"
             onClick={() => setShowCartMobile((show) => !show)}
-            aria-label={`Abrir carrito, ${totalItems} productos`}
+            aria-label={`Abrir carrito, ${cartCount} productos`}
             className="flex shrink-0 items-center gap-2 rounded bg-[#232F3E] px-3 py-2 text-sm lg:hidden"
           >
             <ShoppingCart size={20} />
-            {totalItems}
+            {cartCount}
           </button>
 
           <div className="hidden items-center gap-6 text-sm lg:flex">
@@ -157,9 +111,9 @@ export default function Home() {
             </div>
             <div className="flex items-center gap-1 rounded bg-[#232F3E] px-3 py-2">
               <ShoppingCart size={20} />
-              <span className="font-bold text-[#F08804]">{totalItems}</span>
+              <span className="font-bold text-[#F08804]">{cartCount}</span>
               <span className="hidden xl:inline">
-                Carrito ${totalPrice.toFixed(2)}
+                Carrito ${cartTotal.toFixed(2)}
               </span>
             </div>
           </div>
@@ -183,6 +137,8 @@ export default function Home() {
         >
           {isLoading && <p role="status">Cargando productos...</p>}
           {loadError && <p role="alert">{loadError}</p>}
+          {!cartIsLoaded && <p role="status">Cargando carrito...</p>}
+          {storageError && <p role="alert">{storageError}</p>}
           {!isLoading &&
             !loadError &&
             filtered.map((product) => (
@@ -217,6 +173,7 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={() => addToCart(product)}
+                  disabled={!cartIsLoaded || Boolean(storageError)}
                   className="mt-3 w-full rounded-full border border-[#FCD200] bg-[#FFD814] py-2 text-sm shadow-sm hover:bg-[#F1CA00]"
                 >
                   Agregar al carrito
@@ -265,7 +222,7 @@ export default function Home() {
                 <div className="flex items-center gap-1 rounded-full bg-gray-100 px-1">
                   <button
                     type="button"
-                    onClick={() => removeOne(item.id)}
+                    onClick={() => updateQuantity(item.id, item.qty - 1)}
                     className="rounded-full px-2 py-1 hover:bg-white"
                   >
                     -
@@ -273,7 +230,7 @@ export default function Home() {
                   <span className="w-5 text-center font-bold">{item.qty}</span>
                   <button
                     type="button"
-                    onClick={() => addToCart(item)}
+                    onClick={() => updateQuantity(item.id, item.qty + 1)}
                     className="rounded-full px-2 py-1 hover:bg-white"
                   >
                     +
@@ -287,8 +244,8 @@ export default function Home() {
           )}
           <hr className="my-3" />
           <p className="text-lg font-bold">
-            Total ({totalItems} productos):{" "}
-            <span className="text-[#B12704]">${totalPrice.toFixed(2)}</span>
+            Total ({cartCount} productos):{" "}
+            <span className="text-[#B12704]">${cartTotal.toFixed(2)}</span>
           </p>
           <button
             type="button"
