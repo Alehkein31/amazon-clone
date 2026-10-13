@@ -25,8 +25,8 @@ export default function Home() {
 
     async function loadProducts() {
       try {
-        const response = await fetch("https://127.0.0.1:8000/products", {
-          signal: controller.signal,
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://127.0.0.1:8000";
+        const response =await fetch(`${API_URL}/products`, {
         });
 
         if (!response.ok) {
