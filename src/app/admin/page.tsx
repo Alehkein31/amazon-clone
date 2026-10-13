@@ -59,7 +59,7 @@ export default function Home() {
   const cart = useSyncExternalStore(subscribeToCartCount, getCartCount, () => 0);
 
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/products")
+    fetch("https://127.0.0.1:8000/products")
       .then((response) => {
         if (!response.ok) {
           throw new Error(`Product request failed: ${response.status}`);
